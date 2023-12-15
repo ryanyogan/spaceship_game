@@ -3,13 +3,18 @@ use std::ops::Range;
 use bevy::prelude::*;
 use rand::Rng;
 
-use crate::movement::{Acceleration, MovingObjectBundle, Velocity};
+use crate::{
+    asset_loader::SceneAssets,
+    collion_detection::Collider,
+    movement::{Acceleration, MovingObjectBundle, Velocity},
+};
 
 const SPAWN_RANGE_X: Range<f32> = -25.0..25.0;
 const SPAWN_RANGE_Z: Range<f32> = 0.0..25.0;
 const VELOCITY_SCALAR: f32 = 5.0;
 const ACCELERATION_SCALAR: f32 = 1.0;
 const SPAWN_TIME_SECONDS: f32 = 1.0;
+const ROTATE_SPEED: f32 = 2.5;
 
 #[derive(Component, Debug)]
 pub struct Asteroid;
@@ -26,7 +31,10 @@ impl Plugin for AsteroidPlugin {
         app.insert_resource(SpawnTimer {
             timer: Timer::from_seconds(SPAWN_TIME_SECONDS, TimerMode::Repeating),
         })
-        .add_systems(Update, spawn_asteroid);
+        .add_systems(
+            Update,
+            (spawn_asteroid, rotate_asteroids, handle_asteroid_collisions),
+        );
     }
 }
 
@@ -34,7 +42,7 @@ fn spawn_asteroid(
     mut commands: Commands,
     mut spawn_timer: ResMut<SpawnTimer>,
     time: Res<Time>,
-    asset_server: Res<AssetServer>,
+    scene_assets: Res<SceneAssets>,
 ) {
     spawn_timer.timer.tick(time.delta());
     if !spawn_timer.timer.just_finished() {
@@ -62,11 +70,34 @@ fn spawn_asteroid(
             velocity: Velocity::new(velocity),
             acceleration: Acceleration::new(acceleration),
             model: SceneBundle {
-                scene: asset_server.load("Planet.glb#Scene0"),
+                scene: scene_assets.asteroid.clone(),
                 transform: Transform::from_translation(translation),
                 ..default()
             },
         },
         Asteroid,
     ));
+}
+
+fn rotate_asteroids(mut query: Query<&mut Transform, With<Asteroid>>, time: Res<Time>) {
+    for mut transform in query.iter_mut() {
+        transform.rotate_local_z(ROTATE_SPEED * time.delta_seconds());
+    }
+}
+
+fn handle_asteroid_collisions(
+    mut commands: Commands,
+    query: Query<(Entity, &Collider), With<Asteroid>>,
+) {
+    for (entity, collider) in query.iter() {
+        for &collided_entity in collider.colliding_entites.iter() {
+            // Did it hit another asteroid?  Ignore it
+            if query.get(collided_entity).is_ok() {
+                continue;
+            }
+
+            // Despawn the asteroid on collision
+            commands.entity(entity).despawn_recursive();
+        }
+    }
 }
