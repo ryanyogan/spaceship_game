@@ -15,6 +15,7 @@ const VELOCITY_SCALAR: f32 = 5.0;
 const ACCELERATION_SCALAR: f32 = 1.0;
 const SPAWN_TIME_SECONDS: f32 = 1.0;
 const ROTATE_SPEED: f32 = 2.5;
+const RADIUS: f32 = 2.5;
 
 #[derive(Component, Debug)]
 pub struct Asteroid;
@@ -69,6 +70,7 @@ fn spawn_asteroid(
         MovingObjectBundle {
             velocity: Velocity::new(velocity),
             acceleration: Acceleration::new(acceleration),
+            collider: Collider::new(RADIUS),
             model: SceneBundle {
                 scene: scene_assets.asteroid.clone(),
                 transform: Transform::from_translation(translation),
